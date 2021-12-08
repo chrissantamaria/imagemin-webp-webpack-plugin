@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const imagemin = require('imagemin');
 const webp = require('imagemin-webp');
 const gif2webp = require('imagemin-gif2webp');
@@ -25,6 +26,8 @@ class ImageminWebpWebpackPlugin {
         this.strict = strict;
         this.overrideExtension = overrideExtension;
         this.silent = silent;
+
+        this.assetVersions = {};
     }
 
     apply(compiler) {
@@ -50,9 +53,19 @@ class ImageminWebpWebpackPlugin {
                             outputName = `${outputName}.webp`;
 
                             let currentAsset = compilation.assets[name];
+                            let source = currentAsset.source();
+
+                            let hash = crypto.createHash('md5').update(source).digest('hex');
+
+                            // If the asset hasn't changed since the last build, skip processing
+                            if (this.assetVersions[name] === hash) {
+                                return Promise.resolve(0);
+                            }
+
+                            this.assetVersions[name] = hash;
 
                             return imagemin
-                                .buffer(currentAsset.source(), {
+                                .buffer(source, {
                                     plugins: [
                                         webp(this.config[i].options),
                                         gif2webp(this.config[i].quality),
